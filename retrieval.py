@@ -52,3 +52,59 @@ else:
         whisperModel = whisper.load_model("small")
         print(f"Saving model to {localWhisperPath} for future use...")
         os.makedirs(os.path.dirname(localWhisperPath), exist_ok=True)
+
+
+def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, min_interval_sec=2, threshold=25.0):
+    cap = cv2.VideoCapture(str(videoPath))
+    embeddings, times, paths = [], [], []
+    frameCount, saved = 0, 0
+    vidId = Path(videoPath).stem
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    minIntervalFrames = int(fps * min_interval_sec)
+
+    prevFrame = None
+    prevHist = None
+    lastCaptured = -minIntervalFrames
+
+    while saved < maxFrames:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
+        hist = cv2.normalize(hist, hist).flatten()
+
+        takeFrame = False
+
+        if prevHist is None:
+            takeFrame = True
+        elif (frameCount - lastCaptured) >= minIntervalFrames:
+            diff = cv2.compareHist(hist, prevHist, cv2.HISTCMP_CHISQR)
+            if diff > threshold:
+                takeFrame = True
+
+        if takeFrame:
+            emb = getImageEmbedding(frame)
+            embeddings.append(emb)
+            times.append(frameCount)
+
+            framePath = f"{Settings.outputDir}/frames/{vidId}_frame_{saved:04d}.jpg"
+            cv2.imwrite(framePath, cv2.resize(frame, (Settings.imgSize, Settings.imgSize)))
+            paths.append(framePath)
+            saved += 1
+            lastCaptured = frameCount
+
+        prevFrame = frame
+        prevHist = hist
+        frameCount += 1
+
+    cap.release()
+
+    metadata = [
+        {"videoId": vidId, "videoPath": str(videoPath),
+         "frameIndex": t, "framePath": p}
+        for t, p in zip(times, paths)
+    ]
+    return np.array(embeddings), metadata
