@@ -108,3 +108,24 @@ def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, min_interval
         for t, p in zip(times, paths)
     ]
     return np.array(embeddings), metadata
+
+
+def getImageEmbedding(frame):
+    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(img)
+    inputs = clipProcessor(images=img, return_tensors="pt")
+    with torch.no_grad():
+        emb = clipModel.get_image_features(**inputs)
+    return emb.cpu().numpy().flatten()
+
+def getTextEmbedding(text):
+    inputs = clipProcessor(
+        text=[text],
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=77
+    )
+    with torch.no_grad():
+        emb = clipModel.get_text_features(**inputs)
+    return emb.cpu().numpy().flatten()
