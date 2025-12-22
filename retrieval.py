@@ -129,3 +129,40 @@ def getTextEmbedding(text):
     with torch.no_grad():
         emb = clipModel.get_text_features(**inputs)
     return emb.cpu().numpy().flatten()
+
+def processVideos(videoFiles, skip=False):
+    processed_videos = set()
+    if skip:
+        try:
+            with open(f"{Settings.outputDir}/index/metadata.json") as f:
+                existing_meta = json.load(f)
+                processed_videos = {m['videoId'] for m in existing_meta
+                                  if m.get('videoId') and not m.get('transcript')}
+                print(f"Found {len(processed_videos)} already processed videos")
+        except:
+            pass
+
+    allEmbeddings, allMeta = [], []
+
+    for vp in tqdm(videoFiles, desc="Processing videos"):
+        vidId = Path(vp).stem
+
+        if skip and vidId in processed_videos:
+            print(f"Skipping already processed video: {vidId}")
+            continue
+
+        embFrames, metaFrames = extractVideoEmbeddings(vp)
+        allEmbeddings.extend(embFrames)
+        allMeta.extend(metaFrames)
+
+        embTranscript, transcript = getTranscriptEmbedding(vp)
+        allEmbeddings.append(embTranscript)
+        allMeta.append({
+            "videoId": vidId,
+            "videoPath": str(vp),
+            "frameIndex": None,
+            "framePath": None,
+            "transcript": transcript
+        })
+
+    return np.array(allEmbeddings), allMeta
