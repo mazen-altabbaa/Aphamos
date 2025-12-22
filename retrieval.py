@@ -184,3 +184,76 @@ def processVideos(videoFiles, skip=False):
 
     return np.array(allEmbeddings), allMeta
 
+def buildIndex(features, metadata, incremental=False):
+    if incremental:
+        existing = loadExistingIndex()
+
+        if existing['features'] is not None and existing['metadata'] is not None:
+            print(f"Updating existing index with {len(features)} new items")
+
+            if existing['scaler'] is not None and existing['pca'] is not None:
+                print("Transforming new features using existing scaler and PCA...")
+
+                featuresNorm = existing['scaler'].transform(features)
+                featuresRed = existing['pca'].transform(featuresNorm)
+                allFeaturesRed = np.vstack([existing['features'], featuresRed])
+
+                allFeaturesOriginal = None
+
+                if os.path.exists(f"{Settings.outputDir}/index/features_original.npy"):
+                    existingOriginal = np.load(f"{Settings.outputDir}/index/features_original.npy")
+                    allFeaturesOriginal = np.vstack([existingOriginal, features])
+                else:
+                    print("Warning: Original features not found. Saving new ones only.")
+                    allFeaturesOriginal = features
+
+                np.save(f"{Settings.outputDir}/index/features_original.npy", allFeaturesOriginal)
+
+            else:
+                print("Error: Existing scaler or PCA not found!")
+                print("Cannot do incremental update without them.")
+                print("Falling back to rebuilding from scratch...")
+                incremental = False
+                allFeaturesRed = None
+                allFeaturesOriginal = None
+
+            allMetadata = existing['metadata'] + metadata
+
+        else:
+            print("No existing index found, creating new one")
+            incremental = False
+            allFeaturesRed = None
+            allMetadata = metadata
+            allFeaturesOriginal = features
+    else:
+        print("Building new index (overwriting existing)")
+        allFeaturesRed = None
+        allMetadata = metadata
+        allFeaturesOriginal = features
+
+    if not incremental or allFeaturesRed is None:
+        print("Fitting new scaler and PCA...")
+        scaler = StandardScaler()
+        allFeaturesNorm = scaler.fit_transform(allFeaturesOriginal)
+
+        pca = PCA(n_components=Settings.featureDim)
+        allFeaturesRed = pca.fit_transform(allFeaturesNorm)
+
+        np.save(f"{Settings.outputDir}/index/features_original.npy", allFeaturesOriginal)
+    else:
+        scaler = existing['scaler']
+        pca = existing['pca']
+
+    np.save(f"{Settings.outputDir}/index/features.npy", allFeaturesRed)
+    with open(f"{Settings.outputDir}/index/metadata.json", "w") as f:
+        json.dump(allMetadata, f, indent=2)
+
+    with open(f"{Settings.outputDir}/index/pca.pkl", "wb") as f:
+        pickle.dump(pca, f)
+    with open(f"{Settings.outputDir}/index/scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
+
+    print(f"Index {'updated' if incremental else 'built'} with shape: {allFeaturesRed.shape}")
+    print(f"Total metadata items: {len(allMetadata)}")
+
+    return allFeaturesRed, allMetadata
