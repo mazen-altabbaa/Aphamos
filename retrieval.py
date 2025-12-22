@@ -130,6 +130,23 @@ def getTextEmbedding(text):
         emb = clipModel.get_text_features(**inputs)
     return emb.cpu().numpy().flatten()
 
+
+def extractTranscript(videoPath):
+    result = whisperModel.transcribe(str(videoPath))
+    return result["text"]
+
+
+def getTranscriptEmbedding(videoPath):
+    try:
+        transcript = extractTranscript(videoPath)
+        emb = getTextEmbedding(transcript)
+        return emb, transcript
+    except Exception as e:
+        print(f"Error extracting transcript for {videoPath}: {e}")
+        emb = np.zeros(clipModel.config.projection_dim)
+        return emb, ""
+
+
 def processVideos(videoFiles, skip=False):
     processed_videos = set()
     if skip:
@@ -166,3 +183,4 @@ def processVideos(videoFiles, skip=False):
         })
 
     return np.array(allEmbeddings), allMeta
+
