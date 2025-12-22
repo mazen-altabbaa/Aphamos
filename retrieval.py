@@ -257,3 +257,70 @@ def buildIndex(features, metadata, incremental=False):
     print(f"Total metadata items: {len(allMetadata)}")
 
     return allFeaturesRed, allMetadata
+
+
+def loadPCAandScaler(outputDir=Settings.outputDir):
+    with open(f"{outputDir}/index/pca.pkl","rb") as f:
+        pca = pickle.load(f)
+    with open(f"{outputDir}/index/scaler.pkl","rb") as f:
+        scaler = pickle.load(f)
+    return pca, scaler
+
+def getTranscriptEmbedding(videoPath):
+    try:
+        transcript = extractTranscript(videoPath)
+        emb = getTextEmbedding(transcript)
+        return emb, transcript
+    except Exception as e:
+        print(f"Error extracting transcript for {videoPath}: {e}")
+        emb = np.zeros(clipModel.config.projection_dim)
+        return emb, ""
+
+
+
+def loadExistingIndex():
+    indexDir = f"{Settings.outputDir}/index"
+    existingData = {
+        'features': None,
+        'metadata': None,
+        'scaler': None,
+        'pca': None,
+        'features_original': None
+    }
+
+    try:
+        if os.path.exists(f"{indexDir}/features.npy"):
+            existingData['features'] = np.load(f"{indexDir}/features.npy")
+            print(f"Loaded existing features: {existingData['features'].shape}")
+
+        if os.path.exists(f"{indexDir}/features_original.npy"):
+            existingData['features_original'] = np.load(f"{indexDir}/features_original.npy")
+            print(f"Loaded original features: {existingData['features_original'].shape}")
+
+        if os.path.exists(f"{indexDir}/metadata.json"):
+            with open(f"{indexDir}/metadata.json") as f:
+                existingData['metadata'] = json.load(f)
+            print(f"Loaded existing metadata: {len(existingData['metadata'])} items")
+
+        if os.path.exists(f"{indexDir}/scaler.pkl"):
+            with open(f"{indexDir}/scaler.pkl", "rb") as f:
+                existingData['scaler'] = pickle.load(f)
+            print("Loaded existing scaler")
+
+        if os.path.exists(f"{indexDir}/pca.pkl"):
+            with open(f"{indexDir}/pca.pkl", "rb") as f:
+                existingData['pca'] = pickle.load(f)
+            print("Loaded existing PCA")
+
+    except Exception as e:
+        print(f"Error loading existing index: {e}")
+        existingData = {
+            'features': None,
+            'metadata': None,
+            'scaler': None,
+            'pca': None,
+            'features_original': None
+        }
+
+    return existingData
+
