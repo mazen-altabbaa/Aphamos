@@ -371,7 +371,22 @@ def queryWithText(textQuery, topK=5):
         else:
             print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
 
+def search(queryFeat, indexFeats, metadata, topK=5, weight_transcript=1.5, weight_frame=1.0):
+    q = queryFeat / (np.linalg.norm(queryFeat) + 1e-10)
+    idxNorm = indexFeats / (np.linalg.norm(indexFeats, axis=1, keepdims=True) + 1e-10)
+    sims = np.dot(idxNorm, q)
 
+    weighted_sims = []
+    for i, sim in enumerate(sims):
+        m = metadata[i]
+        if m.get("transcript"):
+            weighted_sims.append(sim * weight_transcript)
+        else:
+            weighted_sims.append(sim * weight_frame)
+
+    weighted_sims = np.array(weighted_sims)
+    top = np.argsort(weighted_sims)[::-1][:topK]
+    return top, weighted_sims[top]
 
 
 
