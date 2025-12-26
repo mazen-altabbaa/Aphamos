@@ -388,6 +388,25 @@ def search(queryFeat, indexFeats, metadata, topK=5, weight_transcript=1.5, weigh
     top = np.argsort(weighted_sims)[::-1][:topK]
     return top, weighted_sims[top]
 
+def main(incremental=False, skip=True):
+    exts = [".mp4", ".avi", ".mov", ".mkv", ".flv"]
+    vids = [p for e in exts for p in Path(Settings.videosDir).glob(f"*{e}")]
+
+    if not vids:
+        print("No videos found.")
+        return None, None
+
+    if incremental and not os.path.exists(f"{Settings.outputDir}/index/features.npy"):
+        print("No existing index found, starting fresh")
+        incremental = False
+
+    feats, meta = processVideos(vids, skip=skip)
+
+    if len(feats) > 0:
+        return buildIndex(feats, meta, incremental=incremental)
+    else:
+        print("No new videos to process")
+        return None, None
 
 
 
