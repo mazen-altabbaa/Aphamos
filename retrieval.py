@@ -353,6 +353,23 @@ def queryWithImage(imgPath, topK=5):
         print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
 
 
+def queryWithText(textQuery, topK=5):
+    feats = np.load(f"{Settings.outputDir}/index/features.npy")
+    with open(f"{Settings.outputDir}/index/metadata.json") as f:
+        meta = json.load(f)
+
+    qRaw = getTextEmbedding(textQuery)
+    q = transformQuery(qRaw.flatten())
+
+    top, sims = search(q, feats, meta, topK)
+    print("Text Query:", textQuery)
+    for r,(i,s) in enumerate(zip(top,sims),1):
+        m = meta[i]
+        if m.get("transcript"):
+            print(f"{r}. {m['videoId']} | Transcript match | Sim={s:.3f}")
+            print("   Transcript snippet:", m['transcript'][:120], "...")
+        else:
+            print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
 
 
 
