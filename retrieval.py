@@ -12,3 +12,392 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from transformers import CLIPProcessor, CLIPModel
 from sklearn.metrics.pairwise import cosine_similarity
+
+whisperModel = None
+
+class Settings:
+    videosDir = "Dataset"
+    outputDir = "output"
+    imgSize = 224
+    frameRate = 12
+    maxFrames = 100
+    featureDim = 14
+
+    Path(outputDir).mkdir(exist_ok=True)
+    Path(f"{outputDir}/frames").mkdir(exist_ok=True)
+    Path(f"{outputDir}/index").mkdir(exist_ok=True)
+
+
+clipModel, clipProcessor = None, None
+localModelPath = "models/clip-vit-base-patch32"
+localWhisperPath = "models/whisper-small"
+
+if os.path.exists(localModelPath):
+    print("Using local CLIP model from:", localModelPath)
+    try:
+        clipModel = CLIPModel.from_pretrained(localModelPath, local_files_only=True)
+        clipProcessor = CLIPProcessor.from_pretrained(localModelPath, local_files_only=True)
+    except:
+        print("Failed to load local CLIP model, downloading...")
+        clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        clipProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+else:
+    print("Local CLIP model not found, downloading from Hugging Face...")
+    clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clipProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+whisper_model_path = os.path.join(localWhisperPath, "model.pt")
+if os.path.exists(whisper_model_path):
+    print("Using local Whisper model from:", whisper_model_path)
+    whisperModel = whisper.load_model(whisper_model_path)
+else:
+    print(f"Local Whisper model not found at {whisper_model_path}")
+    print("Attempting to load from Hugging Face...")
+    
+    if os.path.isdir(localWhisperPath):
+        try:
+            whisperModel = whisper.load_model("small", download_root=localWhisperPath)
+            print(f"Model downloaded and saved to {localWhisperPath}")
+        except:
+            print("Download failed, trying without download root...")
+            whisperModel = whisper.load_model("small")
+    else:
+        whisperModel = whisper.load_model("small")
+        print(f"Saving model to {localWhisperPath} for future use...")
+        os.makedirs(os.path.dirname(localWhisperPath), exist_ok=True)
+
+
+def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, min_interval_sec=2, threshold=25.0):
+    cap = cv2.VideoCapture(str(videoPath))
+    embeddings, times, paths = [], [], []
+    frameCount, saved = 0, 0
+    vidId = Path(videoPath).stem
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    minIntervalFrames = int(fps * min_interval_sec)
+
+    prevFrame = None
+    prevHist = None
+    lastCaptured = -minIntervalFrames
+
+    while saved < maxFrames:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
+        hist = cv2.normalize(hist, hist).flatten()
+
+        takeFrame = False
+
+        if prevHist is None:
+            takeFrame = True
+        elif (frameCount - lastCaptured) >= minIntervalFrames:
+            diff = cv2.compareHist(hist, prevHist, cv2.HISTCMP_CHISQR)
+            if diff > threshold:
+                takeFrame = True
+
+        if takeFrame:
+            emb = getImageEmbedding(frame)
+            embeddings.append(emb)
+            times.append(frameCount)
+
+            framePath = f"{Settings.outputDir}/frames/{vidId}_frame_{saved:04d}.jpg"
+            cv2.imwrite(framePath, cv2.resize(frame, (Settings.imgSize, Settings.imgSize)))
+            paths.append(framePath)
+            saved += 1
+            lastCaptured = frameCount
+
+        prevFrame = frame
+        prevHist = hist
+        frameCount += 1
+
+    cap.release()
+
+    metadata = [
+        {"videoId": vidId, "videoPath": str(videoPath),
+         "frameIndex": t, "framePath": p}
+        for t, p in zip(times, paths)
+    ]
+    return np.array(embeddings), metadata
+
+
+def getImageEmbedding(frame):
+    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(img)
+    inputs = clipProcessor(images=img, return_tensors="pt")
+    with torch.no_grad():
+        emb = clipModel.get_image_features(**inputs)
+    return emb.cpu().numpy().flatten()
+
+def getTextEmbedding(text):
+    inputs = clipProcessor(
+        text=[text],
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=77
+    )
+    with torch.no_grad():
+        emb = clipModel.get_text_features(**inputs)
+    return emb.cpu().numpy().flatten()
+
+
+def extractTranscript(videoPath):
+    result = whisperModel.transcribe(str(videoPath))
+    return result["text"]
+
+
+def getTranscriptEmbedding(videoPath):
+    try:
+        transcript = extractTranscript(videoPath)
+        emb = getTextEmbedding(transcript)
+        return emb, transcript
+    except Exception as e:
+        print(f"Error extracting transcript for {videoPath}: {e}")
+        emb = np.zeros(clipModel.config.projection_dim)
+        return emb, ""
+
+
+def processVideos(videoFiles, skip=False):
+    processed_videos = set()
+    if skip:
+        try:
+            with open(f"{Settings.outputDir}/index/metadata.json") as f:
+                existing_meta = json.load(f)
+                processed_videos = {m['videoId'] for m in existing_meta
+                                  if m.get('videoId') and not m.get('transcript')}
+                print(f"Found {len(processed_videos)} already processed videos")
+        except:
+            pass
+
+    allEmbeddings, allMeta = [], []
+
+    for vp in tqdm(videoFiles, desc="Processing videos"):
+        vidId = Path(vp).stem
+
+        if skip and vidId in processed_videos:
+            print(f"Skipping already processed video: {vidId}")
+            continue
+
+        embFrames, metaFrames = extractVideoEmbeddings(vp)
+        allEmbeddings.extend(embFrames)
+        allMeta.extend(metaFrames)
+
+        embTranscript, transcript = getTranscriptEmbedding(vp)
+        allEmbeddings.append(embTranscript)
+        allMeta.append({
+            "videoId": vidId,
+            "videoPath": str(vp),
+            "frameIndex": None,
+            "framePath": None,
+            "transcript": transcript
+        })
+
+    return np.array(allEmbeddings), allMeta
+
+def buildIndex(features, metadata, incremental=False):
+    if incremental:
+        existing = loadExistingIndex()
+
+        if existing['features'] is not None and existing['metadata'] is not None:
+            print(f"Updating existing index with {len(features)} new items")
+
+            if existing['scaler'] is not None and existing['pca'] is not None:
+                print("Transforming new features using existing scaler and PCA...")
+
+                featuresNorm = existing['scaler'].transform(features)
+                featuresRed = existing['pca'].transform(featuresNorm)
+                allFeaturesRed = np.vstack([existing['features'], featuresRed])
+
+                allFeaturesOriginal = None
+
+                if os.path.exists(f"{Settings.outputDir}/index/features_original.npy"):
+                    existingOriginal = np.load(f"{Settings.outputDir}/index/features_original.npy")
+                    allFeaturesOriginal = np.vstack([existingOriginal, features])
+                else:
+                    print("Warning: Original features not found. Saving new ones only.")
+                    allFeaturesOriginal = features
+
+                np.save(f"{Settings.outputDir}/index/features_original.npy", allFeaturesOriginal)
+
+            else:
+                print("Error: Existing scaler or PCA not found!")
+                print("Cannot do incremental update without them.")
+                print("Falling back to rebuilding from scratch...")
+                incremental = False
+                allFeaturesRed = None
+                allFeaturesOriginal = None
+
+            allMetadata = existing['metadata'] + metadata
+
+        else:
+            print("No existing index found, creating new one")
+            incremental = False
+            allFeaturesRed = None
+            allMetadata = metadata
+            allFeaturesOriginal = features
+    else:
+        print("Building new index (overwriting existing)")
+        allFeaturesRed = None
+        allMetadata = metadata
+        allFeaturesOriginal = features
+
+    if not incremental or allFeaturesRed is None:
+        print("Fitting new scaler and PCA...")
+        scaler = StandardScaler()
+        allFeaturesNorm = scaler.fit_transform(allFeaturesOriginal)
+
+        pca = PCA(n_components=Settings.featureDim)
+        allFeaturesRed = pca.fit_transform(allFeaturesNorm)
+
+        np.save(f"{Settings.outputDir}/index/features_original.npy", allFeaturesOriginal)
+    else:
+        scaler = existing['scaler']
+        pca = existing['pca']
+
+    np.save(f"{Settings.outputDir}/index/features.npy", allFeaturesRed)
+    with open(f"{Settings.outputDir}/index/metadata.json", "w") as f:
+        json.dump(allMetadata, f, indent=2)
+
+    with open(f"{Settings.outputDir}/index/pca.pkl", "wb") as f:
+        pickle.dump(pca, f)
+    with open(f"{Settings.outputDir}/index/scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
+
+    print(f"Index {'updated' if incremental else 'built'} with shape: {allFeaturesRed.shape}")
+    print(f"Total metadata items: {len(allMetadata)}")
+
+    return allFeaturesRed, allMetadata
+
+
+def loadPCAandScaler(outputDir=Settings.outputDir):
+    with open(f"{outputDir}/index/pca.pkl","rb") as f:
+        pca = pickle.load(f)
+    with open(f"{outputDir}/index/scaler.pkl","rb") as f:
+        scaler = pickle.load(f)
+    return pca, scaler
+
+def getTranscriptEmbedding(videoPath):
+    try:
+        transcript = extractTranscript(videoPath)
+        emb = getTextEmbedding(transcript)
+        return emb, transcript
+    except Exception as e:
+        print(f"Error extracting transcript for {videoPath}: {e}")
+        emb = np.zeros(clipModel.config.projection_dim)
+        return emb, ""
+
+
+
+def loadExistingIndex():
+    indexDir = f"{Settings.outputDir}/index"
+    existingData = {
+        'features': None,
+        'metadata': None,
+        'scaler': None,
+        'pca': None,
+        'features_original': None
+    }
+
+    try:
+        if os.path.exists(f"{indexDir}/features.npy"):
+            existingData['features'] = np.load(f"{indexDir}/features.npy")
+            print(f"Loaded existing features: {existingData['features'].shape}")
+
+        if os.path.exists(f"{indexDir}/features_original.npy"):
+            existingData['features_original'] = np.load(f"{indexDir}/features_original.npy")
+            print(f"Loaded original features: {existingData['features_original'].shape}")
+
+        if os.path.exists(f"{indexDir}/metadata.json"):
+            with open(f"{indexDir}/metadata.json") as f:
+                existingData['metadata'] = json.load(f)
+            print(f"Loaded existing metadata: {len(existingData['metadata'])} items")
+
+        if os.path.exists(f"{indexDir}/scaler.pkl"):
+            with open(f"{indexDir}/scaler.pkl", "rb") as f:
+                existingData['scaler'] = pickle.load(f)
+            print("Loaded existing scaler")
+
+        if os.path.exists(f"{indexDir}/pca.pkl"):
+            with open(f"{indexDir}/pca.pkl", "rb") as f:
+                existingData['pca'] = pickle.load(f)
+            print("Loaded existing PCA")
+
+    except Exception as e:
+        print(f"Error loading existing index: {e}")
+        existingData = {
+            'features': None,
+            'metadata': None,
+            'scaler': None,
+            'pca': None,
+            'features_original': None
+        }
+
+    return existingData
+
+
+def queryWithImage(imgPath, topK=5):
+    feats = np.load(f"{Settings.outputDir}/index/features.npy")
+    with open(f"{Settings.outputDir}/index/metadata.json") as f: meta = json.load(f)
+
+    frame = cv2.imread(imgPath)
+    qRaw = getImageEmbedding(frame)
+    q = transformQuery(qRaw.flatten())
+
+    top, sims = search(q, feats, meta, topK)
+    print("Image Query:", imgPath)
+    for r,(i,s) in enumerate(zip(top,sims),1):
+        m = meta[i]
+        print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
+
+
+def queryWithText(textQuery, topK=5):
+    feats = np.load(f"{Settings.outputDir}/index/features.npy")
+    with open(f"{Settings.outputDir}/index/metadata.json") as f:
+        meta = json.load(f)
+
+    qRaw = getTextEmbedding(textQuery)
+    q = transformQuery(qRaw.flatten())
+
+    top, sims = search(q, feats, meta, topK)
+    print("Text Query:", textQuery)
+    for r,(i,s) in enumerate(zip(top,sims),1):
+        m = meta[i]
+        if m.get("transcript"):
+            print(f"{r}. {m['videoId']} | Transcript match | Sim={s:.3f}")
+            print("   Transcript snippet:", m['transcript'][:120], "...")
+        else:
+            print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
+
+def search(queryFeat, indexFeats, metadata, topK=5, weight_transcript=1.5, weight_frame=1.0):
+    q = queryFeat / (np.linalg.norm(queryFeat) + 1e-10)
+    idxNorm = indexFeats / (np.linalg.norm(indexFeats, axis=1, keepdims=True) + 1e-10)
+    sims = np.dot(idxNorm, q)
+
+    weighted_sims = []
+    for i, sim in enumerate(sims):
+        m = metadata[i]
+        if m.get("transcript"):
+            weighted_sims.append(sim * weight_transcript)
+        else:
+            weighted_sims.append(sim * weight_frame)
+
+    weighted_sims = np.array(weighted_sims)
+    top = np.argsort(weighted_sims)[::-1][:topK]
+    return top, weighted_sims[top]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
