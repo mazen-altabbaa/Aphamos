@@ -137,59 +137,79 @@ if torch.cuda.is_available():
 checkCuda()
 
 
-def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, min_interval_sec=2, threshold=25.0):
+
+def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, minIntervalSec=2, 
+                          initialThreshold=25, learningRate=0.1):
     cap = cv2.VideoCapture(str(videoPath))
-    embeddings, times, paths = [], [], []
-    frameCount, saved = 0, 0
-    vidId = Path(videoPath).stem
-
+    embeddings, captureTimes, framePaths = [], [], []
+    frameCount, savedCount = 0, 0
+    videoId = Path(videoPath).stem
+    
     fps = cap.get(cv2.CAP_PROP_FPS)
-    minIntervalFrames = int(fps * min_interval_sec)
-
+    if fps <= 0:
+        fps = 30
+        
+    minIntervalFrames = int(fps * minIntervalSec)
+    
     prevFrame = None
     prevHist = None
-    lastCaptured = -minIntervalFrames
-
-    while saved < maxFrames:
+    lastCapturedFrame = -minIntervalFrames
+    
+    currentThreshold = initialThreshold
+    diffHistory = []
+    
+    while savedCount < maxFrames:
         ret, frame = cap.read()
         if not ret:
             break
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
+            
+        grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        hist = cv2.calcHist([grayFrame], [0], None, [32], [0, 256])
         hist = cv2.normalize(hist, hist).flatten()
-
-        takeFrame = False
-
+        
+        shouldCapture = False
+        
         if prevHist is None:
-            takeFrame = True
-        elif (frameCount - lastCaptured) >= minIntervalFrames:
+            shouldCapture = True
+        elif (frameCount - lastCapturedFrame) >= minIntervalFrames:
             diff = cv2.compareHist(hist, prevHist, cv2.HISTCMP_CHISQR)
-            if diff > threshold:
-                takeFrame = True
-
-        if takeFrame:
-            emb = getImageEmbedding(frame)
-            embeddings.append(emb)
-            times.append(frameCount)
-
-            framePath = f"{Settings.outputDir}/frames/{vidId}_frame_{saved:04d}.jpg"
+            diffHistory.append(diff)
+            
+            if len(diffHistory) > 9:
+                avgDiff = np.mean(diffHistory[-9:])
+                currentThreshold = initialThreshold * (1 + learningRate * (avgDiff - initialThreshold) / initialThreshold)    
+            if diff > currentThreshold:
+                shouldCapture = True
+        
+        if shouldCapture:
+            embedding = getImageEmbedding(frame)
+            embeddings.append(embedding)
+            captureTimes.append(frameCount)
+            
+            framePath = f"{Settings.outputDir}/frames/{videoId}_frame_{savedCount:04d}.jpg"
             cv2.imwrite(framePath, cv2.resize(frame, (Settings.imgSize, Settings.imgSize)))
-            paths.append(framePath)
-            saved += 1
-            lastCaptured = frameCount
-
+            framePaths.append(framePath)
+            savedCount += 1
+            lastCapturedFrame = frameCount
+        
         prevFrame = frame
         prevHist = hist
         frameCount += 1
-
+    
     cap.release()
-
+    
     metadata = [
-        {"videoId": vidId, "videoPath": str(videoPath),
-         "frameIndex": t, "framePath": p}
-        for t, p in zip(times, paths)
+        {
+            "videoId": videoId,
+            "videoPath": str(videoPath),
+            "frameIndex": time,
+            "framePath": path
+        }
+        for time, path in zip(captureTimes, framePaths)
     ]
+    
+    print(f"Extracted {savedCount} frames from {videoId} with adaptive threshold {currentThreshold:.2f}")
+    
     return np.array(embeddings), metadata
 
 
