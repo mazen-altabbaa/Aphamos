@@ -7,11 +7,58 @@ from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
 import os, cv2, json, pickle
+import torch.backends.cudnn as cudnn
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from transformers import CLIPProcessor, CLIPModel
 from sklearn.metrics.pairwise import cosine_similarity
+
+def checkCuda():
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128' 
+
+
+    print("GPU CONFIGURATION CHECK")
+
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    print(f"CUDA version: {torch.version.cuda}")
+
+    if torch.cuda.is_available():
+        device_count = torch.cuda.device_count()
+        print(f"Number of CUDA devices: {device_count}")
+        
+        for i in range(device_count):
+            gpuName = torch.cuda.get_device_name(i)
+            gpuMemory = torch.cuda.get_device_properties(i).total_memory / 1024**3
+            print(f"  GPU {i}: {gpuName} ({gpuMemory:.1f} GB)")
+        
+        torch.cuda.set_device(0)
+        currDevice = torch.cuda.current_device()
+        print(f"\nCurrent GPU: {torch.cuda.get_device_name(currDevice)}")
+        
+        cudnn.benchmark = True 
+        cudnn.enabled = True
+        
+        testTensor = torch.randn(1000, 1000).cuda()
+        print(f"GPU test passed: {testTensor.shape} on GPU")
+        del testTensor
+        torch.cuda.empty_cache()
+    else:
+        print("WARNING: No CUDA GPU detected!")
+        print("Check if NVIDIA drivers are installed properly")
+
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        print(f"Using device: {torch.cuda.get_device_name(device)}")
+        
+        torch.cuda.set_device(device)
+    else:
+        device = torch.device("cpu")
+        print("Using CPU")
+
 
 whisperModel = None
 
