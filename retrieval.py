@@ -384,3 +384,72 @@ def loadExistingIndex():
 
     return existingData
 
+
+def queryWithText(textQuery, topK=5):
+    feats = np.load(f"{Settings.outputDir}/index/features.npy")
+    with open(f"{Settings.outputDir}/index/metadata.json") as f:
+        meta = json.load(f)
+
+    qRaw = getTextEmbedding(textQuery)
+    q = transformQuery(qRaw.flatten())
+
+    top, sims = search(q, feats, meta, topK)
+    print("Text Query:", textQuery)
+    for r,(i,s) in enumerate(zip(top,sims),1):
+        m = meta[i]
+        if m.get("transcript"):
+            print(f"{r}. {m['videoId']} | Transcript match | Sim={s:.3f}")
+            print("   Transcript snippet:", m['transcript'][:120], "...")
+        else:
+            print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
+
+def search(queryFeat, indexFeats, metadata, topK=5, weight_transcript=1.5, weight_frame=1.0):
+    q = queryFeat / (np.linalg.norm(queryFeat) + 1e-10)
+    idxNorm = indexFeats / (np.linalg.norm(indexFeats, axis=1, keepdims=True) + 1e-10)
+    sims = np.dot(idxNorm, q)
+
+    weighted_sims = []
+    for i, sim in enumerate(sims):
+        m = metadata[i]
+        if m.get("transcript"):
+            weighted_sims.append(sim * weight_transcript)
+        else:
+            weighted_sims.append(sim * weight_frame)
+
+    weighted_sims = np.array(weighted_sims)
+    top = np.argsort(weighted_sims)[::-1][:topK]
+    return top, weighted_sims[top]
+
+def main(incremental=False, skip=True):
+    exts = [".mp4", ".avi", ".mov", ".mkv", ".flv"]
+    vids = [p for e in exts for p in Path(Settings.videosDir).glob(f"*{e}")]
+
+    if not vids:
+        print("No videos found.")
+        return None, None
+
+    if incremental and not os.path.exists(f"{Settings.outputDir}/index/features.npy"):
+        print("No existing index found, starting fresh")
+        incremental = False
+
+    feats, meta = processVideos(vids, skip=skip)
+
+    if len(feats) > 0:
+        return buildIndex(feats, meta, incremental=incremental)
+    else:
+        print("No new videos to process")
+        return None, None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
