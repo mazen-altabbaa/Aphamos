@@ -261,7 +261,6 @@ def getTranscriptEmbedding(videoPath):
         emb = np.zeros(clipModel.config.projection_dim)
         return emb, ""
 
-
 def processVideos(videoFiles, skip=False):
     processed_videos = set()
     if skip:
@@ -297,7 +296,13 @@ def processVideos(videoFiles, skip=False):
             "transcript": transcript
         })
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+
+
     return np.array(allEmbeddings), allMeta
+
 
 def buildIndex(features, metadata, incremental=False):
     if incremental:
