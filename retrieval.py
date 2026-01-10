@@ -499,6 +499,23 @@ def loadExistingIndex():
 
     return existingData
 
+def transformQuery(qRaw, outputDir=Settings.outputDir):
+    pca, scaler = loadPCAandScaler(outputDir)
+    qNorm = scaler.transform([qRaw])
+    qRed = pca.transform(qNorm)
+    return qRed.flatten()
+
+def extractTranscript(videoPath):
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        
+    result = whisperModel.transcribe(
+        str(videoPath),
+        fp16=torch.cuda.is_available()
+    )
+    return result["text"]
+
+
 
 def queryWithImage(imgPath, topK=5):
     feats = np.load(f"{Settings.outputDir}/index/features.npy")
