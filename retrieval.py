@@ -137,7 +137,7 @@ if torch.cuda.is_available():
 checkCuda()
 
 
-
+@torch.no_grad()
 def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, minIntervalSec=2, 
                           initialThreshold=25, learningRate=0.1):
     cap = cv2.VideoCapture(str(videoPath))
@@ -217,6 +217,9 @@ def getImageEmbedding(frame):
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(img)
     inputs = clipProcessor(images=img, return_tensors="pt")
+
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
     with torch.no_grad():
         emb = clipModel.get_image_features(**inputs)
     return emb.cpu().numpy().flatten()
