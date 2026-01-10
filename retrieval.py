@@ -245,10 +245,16 @@ def getTextEmbedding(text):
     return emb.cpu().numpy().flatten()
 
 
-
 def extractTranscript(videoPath):
-    result = whisperModel.transcribe(str(videoPath))
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        
+    result = whisperModel.transcribe(
+        str(videoPath),
+        fp16=torch.cuda.is_available()
+    )
     return result["text"]
+
 
 
 def getTranscriptEmbedding(videoPath):
