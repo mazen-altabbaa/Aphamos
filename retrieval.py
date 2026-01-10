@@ -59,6 +59,27 @@ def checkCuda():
         device = torch.device("cpu")
         print("Using CPU")
 
+
+def checkFFMPEG():
+    import subprocess
+    
+    print("Test - CHECKING FFMPEG")
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+        print(f"ffmpeg available: {result.returncode == 0}")
+        if result.returncode == 0:
+            print(f"ffmpeg version: {result.stdout.split('version')[1].split()[0]}")
+    except FileNotFoundError:
+        print("ffmpeg NOT FOUND in PATH")
+    
+    try:
+        result = subprocess.run(['ffprobe', '-version'], capture_output=True, text=True)
+        print(f"ffprobe available: {result.returncode == 0}")
+    except FileNotFoundError:
+        print("ffprobe NOT FOUND in PATH")
+    
+
+
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
     print(f"Using device: {torch.cuda.get_device_name(device)}")
@@ -516,7 +537,6 @@ def extractTranscript(videoPath):
     return result["text"]
 
 
-
 def queryWithImage(imgPath, topK=5):
     feats = np.load(f"{Settings.outputDir}/index/features.npy")
     with open(f"{Settings.outputDir}/index/metadata.json") as f: meta = json.load(f)
@@ -551,6 +571,7 @@ def queryWithText(textQuery, topK=5):
         else:
             print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
 
+
 def search(queryFeat, indexFeats, metadata, topK=5, weight_transcript=1.5, weight_frame=1.0):
     q = queryFeat / (np.linalg.norm(queryFeat) + 1e-10)
     idxNorm = indexFeats / (np.linalg.norm(indexFeats, axis=1, keepdims=True) + 1e-10)
@@ -567,6 +588,7 @@ def search(queryFeat, indexFeats, metadata, topK=5, weight_transcript=1.5, weigh
     weighted_sims = np.array(weighted_sims)
     top = np.argsort(weighted_sims)[::-1][:topK]
     return top, weighted_sims[top]
+
 
 def main(incremental=False, skip=True):
     exts = [".mp4", ".avi", ".mov", ".mkv", ".flv"]
@@ -589,15 +611,22 @@ def main(incremental=False, skip=True):
         return None, None
 
 
+def ShowChoices():
 
+    while True:
+        print("\nOptions:")
+        print("1. Search with text query: ")
+        print("2. Exit")
 
+        choice = input("\nEnter choice (1-2): ")
 
+        if choice == "1":
+            query = input("Enter search query: ")
+            queryWithText(query, topK=5)
 
+        elif choice == "2":
+            print("Goodbye!")
+            break
 
-
-
-
-
-
-
-
+        else:
+            print("please enter 1-3!!!")
