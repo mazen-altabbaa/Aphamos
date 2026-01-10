@@ -385,6 +385,55 @@ def buildIndex(features, metadata, incremental=False):
     return allFeaturesRed, allMetadata
 
 
+def loadExistingIndex():
+    indexDir = f"{Settings.outputDir}/index"
+    existingData = {
+        'features': None,
+        'metadata': None,
+        'scaler': None,
+        'pca': None,
+        'features_original': None
+    }
+
+    try:
+        if os.path.exists(f"{indexDir}/features.npy"):
+            existingData['features'] = np.load(f"{indexDir}/features.npy")
+            print(f"Loaded existing features: {existingData['features'].shape}")
+
+        if os.path.exists(f"{indexDir}/features_original.npy"):
+            existingData['features_original'] = np.load(f"{indexDir}/features_original.npy")
+            print(f"Loaded original features: {existingData['features_original'].shape}")
+
+        if os.path.exists(f"{indexDir}/metadata.json"):
+            with open(f"{indexDir}/metadata.json") as f:
+                existingData['metadata'] = json.load(f)
+            print(f"Loaded existing metadata: {len(existingData['metadata'])} items")
+
+        if os.path.exists(f"{indexDir}/scaler.pkl"):
+            with open(f"{indexDir}/scaler.pkl", "rb") as f:
+                existingData['scaler'] = pickle.load(f)
+            print("Loaded existing scaler")
+
+        if os.path.exists(f"{indexDir}/pca.pkl"):
+            with open(f"{indexDir}/pca.pkl", "rb") as f:
+                existingData['pca'] = pickle.load(f)
+            print("Loaded existing PCA")
+
+    except Exception as e:
+        print(f"Error loading existing index: {e}")
+        existingData = {
+            'features': None,
+            'metadata': None,
+            'scaler': None,
+            'pca': None,
+            'features_original': None
+        }
+
+    return existingData
+
+
+
+
 def loadPCAandScaler(outputDir=Settings.outputDir):
     with open(f"{outputDir}/index/pca.pkl","rb") as f:
         pca = pickle.load(f)
