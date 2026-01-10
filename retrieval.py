@@ -224,6 +224,7 @@ def getImageEmbedding(frame):
         emb = clipModel.get_image_features(**inputs)
     return emb.cpu().numpy().flatten()
 
+
 def getTextEmbedding(text):
     inputs = clipProcessor(
         text=[text],
@@ -232,9 +233,13 @@ def getTextEmbedding(text):
         truncation=True,
         max_length=77
     )
+
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
     with torch.no_grad():
         emb = clipModel.get_text_features(**inputs)
     return emb.cpu().numpy().flatten()
+
 
 
 def extractTranscript(videoPath):
