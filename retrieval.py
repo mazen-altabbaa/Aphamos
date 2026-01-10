@@ -68,6 +68,10 @@ else:
     device = torch.device("cpu")
     print("Using CPU")
 
+def clear_gpu_cache():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        print(f"GPU memory cleared. Current usage: {torch.cuda.memory_allocated()/1024**2:.2f} MB")
 
 
 whisperModel = None
