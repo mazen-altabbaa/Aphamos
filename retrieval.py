@@ -500,6 +500,22 @@ def loadExistingIndex():
     return existingData
 
 
+def queryWithImage(imgPath, topK=5):
+    feats = np.load(f"{Settings.outputDir}/index/features.npy")
+    with open(f"{Settings.outputDir}/index/metadata.json") as f: meta = json.load(f)
+
+    frame = cv2.imread(imgPath)
+    qRaw = getImageEmbedding(frame)
+    q = transformQuery(qRaw.flatten())
+
+    top, sims = search(q, feats, meta, topK)
+    print("Image Query:", imgPath)
+    for r,(i,s) in enumerate(zip(top,sims),1):
+        m = meta[i]
+        print(f"{r}. {m['videoId']} | Frame {m['frameIndex']} | {m['framePath']} | Sim={s:.3f}")
+
+
+
 def queryWithText(textQuery, topK=5):
     feats = np.load(f"{Settings.outputDir}/index/features.npy")
     with open(f"{Settings.outputDir}/index/metadata.json") as f:
