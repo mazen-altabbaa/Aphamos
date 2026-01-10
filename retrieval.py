@@ -59,6 +59,16 @@ def checkCuda():
         device = torch.device("cpu")
         print("Using CPU")
 
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+    print(f"Using device: {torch.cuda.get_device_name(device)}")
+    
+    torch.cuda.set_device(device)
+else:
+    device = torch.device("cpu")
+    print("Using CPU")
+
+
 
 whisperModel = None
 
@@ -76,42 +86,55 @@ class Settings:
 
 
 clipModel, clipProcessor = None, None
-localModelPath = "models/clip-vit-base-patch32"
-localWhisperPath = "models/whisper-small"
+localModelPath = "D:/temp/curr/clip-vit-base-patch32"
+localWhisperPath = "D:/temp/curr/whisper-small" 
 
 if os.path.exists(localModelPath):
     print("Using local CLIP model from:", localModelPath)
     try:
-        clipModel = CLIPModel.from_pretrained(localModelPath, local_files_only=True)
+        clipModel = CLIPModel.from_pretrained(localModelPath, local_files_only=True).to(device)
         clipProcessor = CLIPProcessor.from_pretrained(localModelPath, local_files_only=True)
     except:
         print("Failed to load local CLIP model, downloading...")
-        clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+        clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
         clipProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 else:
     print("Local CLIP model not found, downloading from Hugging Face...")
-    clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     clipProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+if torch.cuda.is_available():
+    clipModel = clipModel.to("cuda:0") 
+    print(f"CLIP model moved to GPU 0: {torch.cuda.get_device_name(0)}")
+else:
+    print("WARNING: CLIP running on CPU - very slow!")
+
+
 
 whisper_model_path = os.path.join(localWhisperPath, "model.pt")
 if os.path.exists(whisper_model_path):
     print("Using local Whisper model from:", whisper_model_path)
-    whisperModel = whisper.load_model(whisper_model_path)
+    whisperModel = whisper.load_model(whisper_model_path).to(device)
 else:
     print(f"Local Whisper model not found at {whisper_model_path}")
     print("Attempting to load from Hugging Face...")
     
     if os.path.isdir(localWhisperPath):
         try:
-            whisperModel = whisper.load_model("small", download_root=localWhisperPath)
+            whisperModel = whisper.load_model("small", download_root=localWhisperPath).to(device)
             print(f"Model downloaded and saved to {localWhisperPath}")
         except:
             print("Download failed, trying without download root...")
-            whisperModel = whisper.load_model("small")
+            whisperModel = whisper.load_model("small").to(device)
     else:
-        whisperModel = whisper.load_model("small")
+        whisperModel = whisper.load_model("small").to(device)
         print(f"Saving model to {localWhisperPath} for future use...")
         os.makedirs(os.path.dirname(localWhisperPath), exist_ok=True)
+
+if torch.cuda.is_available():
+    whisperModel = whisperModel.to(device)
+    print("Whisper model moved to GPU")
+checkCuda()
 
 
 def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, min_interval_sec=2, threshold=25.0):
