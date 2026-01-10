@@ -453,8 +453,6 @@ def loadExistingIndex():
     return existingData
 
 
-
-
 def loadPCAandScaler(outputDir=Settings.outputDir):
     with open(f"{outputDir}/index/pca.pkl","rb") as f:
         pca = pickle.load(f)
@@ -630,3 +628,43 @@ def ShowChoices():
 
         else:
             print("please enter 1-3!!!")
+
+
+if __name__ == "__main__":
+    checkFFMPEG()
+
+    indexfound = os.path.exists(f"{Settings.outputDir}/index/features.npy")
+
+    if not indexfound:
+        print("No index found. Building initial index...")
+        main(incremental=False, skip=False)
+    else:
+        print("Index already exists!")
+        print("\nOptions:")
+        print("1. Use existing index")
+        print("2. Add new videos to index (incremental update)")
+        print("3. Rebuild index from scratch (DELETE existing)")
+
+        choice = input("\nEnter choice (1-3): ")
+
+        if choice == "1":
+            print("Using existing index...")
+        elif choice == "2": 
+            print("Adding new videos incrementally...")
+            main(incremental=True, skip=True)
+        elif choice == "3":
+            import shutil
+            if os.path.exists(Settings.outputDir):
+                shutil.rmtree(Settings.outputDir)
+            Path(Settings.outputDir).mkdir(exist_ok=True)
+            Path(f"{Settings.outputDir}/frames").mkdir(exist_ok=True)
+            Path(f"{Settings.outputDir}/index").mkdir(exist_ok=True)
+
+            print("Building fresh index...")
+            main(incremental=False, skip=False)
+        else:
+            print("Invalid choice. Using existing index...")
+
+    print("\n" + "=" * 60)
+    print("Starting enhanced system with Rocchio feedback...")
+    ShowChoices()
