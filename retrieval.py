@@ -1,4 +1,5 @@
 import torch
+import librosa
 import whisper
 import datetime
 import numpy as np
@@ -58,26 +59,6 @@ def checkCuda():
     else:
         device = torch.device("cpu")
         print("Using CPU")
-
-
-def checkFFMPEG():
-    import subprocess
-    
-    print("Test - CHECKING FFMPEG")
-    try:
-        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
-        print(f"ffmpeg available: {result.returncode == 0}")
-        if result.returncode == 0:
-            print(f"ffmpeg version: {result.stdout.split('version')[1].split()[0]}")
-    except FileNotFoundError:
-        print("ffmpeg NOT FOUND in PATH")
-    
-    try:
-        result = subprocess.run(['ffprobe', '-version'], capture_output=True, text=True)
-        print(f"ffprobe available: {result.returncode == 0}")
-    except FileNotFoundError:
-        print("ffprobe NOT FOUND in PATH")
-    
 
 
 if torch.cuda.is_available():
@@ -269,14 +250,14 @@ def getTextEmbedding(text):
 def extractTranscript(videoPath):
     if torch.cuda.is_available():
         torch.cuda.synchronize()
-        
+    
+    audio, sr = librosa.load(str(videoPath), sr=16000)
+    
     result = whisperModel.transcribe(
-        str(videoPath),
+        audio,
         fp16=torch.cuda.is_available()
     )
     return result["text"]
-
-
 
 def getTranscriptEmbedding(videoPath):
     try:
