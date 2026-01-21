@@ -79,12 +79,12 @@ def clear_gpu_cache():
 whisperModel = None
 
 class Settings:
-    videosDir = "Dataset"
+    videosDir = "D:/Programming/ProgrammingLangFiles/IR_Project/Training/Dataset/Testing"
     outputDir = "output"
     imgSize = 224
-    frameRate = 12
-    maxFrames = 100
-    featureDim = 14
+    frameRate = 1
+    maxFrames = 30
+    featureDim = 256
 
     Path(outputDir).mkdir(exist_ok=True)
     Path(f"{outputDir}/frames").mkdir(exist_ok=True)
@@ -145,7 +145,7 @@ checkCuda()
 
 @torch.no_grad()
 def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, minIntervalSec=2, 
-                          initialThreshold=25, learningRate=0.1):
+                          initialThreshold=40, learningRate=0.1):
     cap = cv2.VideoCapture(str(videoPath))
     embeddings, captureTimes, framePaths = [], [], []
     frameCount, savedCount = 0, 0
@@ -612,7 +612,6 @@ def ShowChoices():
 
 
 if __name__ == "__main__":
-    checkFFMPEG()
 
     indexfound = os.path.exists(f"{Settings.outputDir}/index/features.npy")
 
