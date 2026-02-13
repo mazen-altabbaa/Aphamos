@@ -145,7 +145,7 @@ checkCuda()
 
 @torch.no_grad()
 def extractVideoEmbeddings(videoPath, maxFrames=Settings.maxFrames, minIntervalSec=2, 
-                          initialThreshold=40, learningRate=0.1):
+                          initialThreshold=70, learningRate=0.1):
     cap = cv2.VideoCapture(str(videoPath))
     embeddings, captureTimes, framePaths = [], [], []
     frameCount, savedCount = 0, 0
