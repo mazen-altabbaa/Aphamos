@@ -85,7 +85,7 @@ The system is now ready for execution.
 For questions or collaborations:
 * **Ahmad**
 Email: ahmad2315753@gmail.com
-Github: [ahmad-srdah](https://github.com/ahmad-srdah)
+Github: [ahmad-srdah](https://github.com/ahmad-alsrdah)
 * **Mazen**
 Email: mazenaltabbaa366@gmail.com
 Github: [mazen-altabbaa](https://github.com/mazen-altabbaa)
