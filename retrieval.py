@@ -79,7 +79,7 @@ def clear_gpu_cache():
 whisperModel = None
 
 class Settings:
-    videosDir = "D:/Programming/ProgrammingLangFiles/IR_Project/Training/Dataset/Testing"
+    videosDir = "videos directory path here"
     outputDir = "output"
     imgSize = 224
     frameRate = 1
