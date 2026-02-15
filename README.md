@@ -57,11 +57,11 @@ We use Dataset from [Panda-70M](https://snap-research.github.io/Panda-70M/), And
 ---
 Get an Aphamos repository:
 ```
-git clone git@github.com:mazen-altabbaa/Video-Retrieval-System.git
+git clone git@github.com:mazen-altabbaa/Aphamos.git
 ```
 Change to the appropriate directory:
 ```
-cd Video-Retrieval-System 
+cd Aphamos 
 ```
 Install requirements libraries
 ```
