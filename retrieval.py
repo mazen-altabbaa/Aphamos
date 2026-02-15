@@ -92,14 +92,14 @@ class Settings:
 
 
 clipModel, clipProcessor = None, None
-localModelPath = "D:/temp/curr/clip-vit-base-patch32"
+localClipPath = "D:/temp/curr/clip-vit-base-patch32"
 localWhisperPath = "D:/temp/curr/whisper-small" 
 
-if os.path.exists(localModelPath):
-    print("Using local CLIP model from:", localModelPath)
+if os.path.exists(localClipPath):
+    print("Using local CLIP model from:", localClipPath)
     try:
-        clipModel = CLIPModel.from_pretrained(localModelPath, local_files_only=True).to(device)
-        clipProcessor = CLIPProcessor.from_pretrained(localModelPath, local_files_only=True)
+        clipModel = CLIPModel.from_pretrained(localClipPath, local_files_only=True).to(device)
+        clipProcessor = CLIPProcessor.from_pretrained(localClipPath, local_files_only=True)
     except:
         print("Failed to load local CLIP model, downloading...")
         clipModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
