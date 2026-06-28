@@ -1,14 +1,97 @@
-import torch
-import whisper
-import datetime
-import numpy as np
-import pandas as pd
-from PIL import Image
-from tqdm import tqdm
+import os
 from pathlib import Path
-import os, cv2, json, pickle
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-from transformers import CLIPProcessor, CLIPModel
-from sklearn.metrics.pairwise import cosine_similarity
+
+_modelsDir = str((Path(__file__).parent / "models").resolve())
+os.environ["HF_HOME"] = _modelsDir
+os.environ["HF_HUB_CACHE"] = str(Path(_modelsDir) / "hub")
+
+import cv2
+from config import SystemConfig
+from engines.visionEncoder import MobileClipVisionEncoder
+from engines.asrEngine import MoonshineAsrEngine
+from core.modalityWeighter import buildModalityWeighter
+from storage.indexStore import IndexStore
+from indexing.indexBuilder import IndexBuilder
+from retrieval.querySearch import QuerySearch
+from datasets.datasetLoader import LocalFolderDatasetLoader
+
+
+def buildEngines(config: SystemConfig):
+    visionEncoder = MobileClipVisionEncoder(
+        config.visionModelName, config.visionPretrainedTag, config.device
+    )
+    asrEngine = MoonshineAsrEngine(config.asrModelId, config.device)
+    modalityWeighter = buildModalityWeighter(config)
+    return visionEncoder, asrEngine, modalityWeighter
+
+
+def runIndexingMenu(config: SystemConfig, videoPaths: list):
+    visionEncoder, asrEngine, modalityWeighter = buildEngines(config)
+    indexBuilder = IndexBuilder(config, visionEncoder, asrEngine, modalityWeighter)
+    collectionName = input("Name this collection (e.g. batch01): ").strip() or "collection"
+    metadata, videoStatsList = indexBuilder.buildOrResume(videoPaths, collectionName)
+    print(f"Indexed {len(videoStatsList)} new videos. Total items in index: {len(metadata)}")
+    return visionEncoder
+
+
+def runQueryMenu(config: SystemConfig, visionEncoder=None):
+    if visionEncoder is None:
+        visionEncoder = MobileClipVisionEncoder(
+            config.visionModelName, config.visionPretrainedTag, config.device
+        )
+    querySearch = QuerySearch(config, visionEncoder)
+
+    while True:
+        print("\n1. Text query  2. Image query  3. Back")
+        choice = input("Choice: ").strip()
+
+        if choice == "1":
+            textQuery = input("Enter search text: ").strip()
+            results, timings = querySearch.queryWithText(textQuery, topK=5)
+        elif choice == "2":
+            imagePath = input("Enter image path: ").strip()
+            frame = cv2.imread(imagePath)
+            results, timings = querySearch.queryWithImage(frame, topK=5)
+        else:
+            return
+
+        for rank, result in enumerate(results, start=1):
+            print(f"{rank}. {result['videoId']} | score={result['score']:.4f}")
+        print("Timings (sec):", {key: round(value, 4) for key, value in timings.items()})
+
+
+def main():
+    config = SystemConfig()
+    config.ensureDirectories()
+    indexStore = IndexStore(config.indexDir)
+
+    if not indexStore.hasExistingIndex():
+        videosDir = input("Videos directory: ").strip()
+        videoPaths = LocalFolderDatasetLoader(videosDir).listVideoPaths()
+        if not videoPaths:
+            print("No videos found.")
+            return
+        visionEncoder = runIndexingMenu(config, videoPaths)
+        runQueryMenu(config, visionEncoder)
+        return
+
+    print("1. Use existing index\n2. Add more videos\n3. Reset index from scratch")
+    choice = input("Choice: ").strip()
+
+    if choice == "2":
+        videosDir = input("Videos directory: ").strip()
+        videoPaths = LocalFolderDatasetLoader(videosDir).listVideoPaths()
+        visionEncoder = runIndexingMenu(config, videoPaths)
+        runQueryMenu(config, visionEncoder)
+    elif choice == "3":
+        indexStore.reset()
+        videosDir = input("Videos directory: ").strip()
+        videoPaths = LocalFolderDatasetLoader(videosDir).listVideoPaths()
+        visionEncoder = runIndexingMenu(config, videoPaths)
+        runQueryMenu(config, visionEncoder)
+    else:
+        runQueryMenu(config)
+
+
+if __name__ == "__main__":
+    main()
