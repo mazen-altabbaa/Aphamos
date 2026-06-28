@@ -3,6 +3,12 @@ import numpy as np
 from storage.indexStore import IndexStore
 from storage.pcaReducer import PcaDimensionReducer, IdentityDimensionReducer
 
+allowedModalitiesByRetrievalMode = {
+    "audio": {"transcript"},
+    "image": {"frame"},
+    "both": {"transcript", "frame"},
+}
+
 
 class QuerySearch:
     def __init__(self, config, visionEncoder):
@@ -10,14 +16,16 @@ class QuerySearch:
         self.visionEncoder = visionEncoder
         self.indexStore = IndexStore(config.indexDir)
 
-    def queryWithText(self, textQuery: str, topK: int = 5):
-        return self._query(lambda: self.visionEncoder.encodeText(textQuery), topK)
+    def queryWithText(self, textQuery: str, topK: int = 5, retrievalMode: str = None):
+        return self._query(lambda: self.visionEncoder.encodeText(textQuery), topK, retrievalMode)
 
-    def queryWithImage(self, frame, topK: int = 5):
-        return self._query(lambda: self.visionEncoder.encodeImage(frame), topK)
+    def queryWithImage(self, frame, topK: int = 5, retrievalMode: str = None):
+        return self._query(lambda: self.visionEncoder.encodeImage(frame), topK, retrievalMode)
 
-    def _query(self, embedFn, topK: int):
+    def _query(self, embedFn, topK: int, retrievalMode: str):
         timings = {}
+        retrievalMode = retrievalMode or self.config.retrievalMode
+        allowedModalities = allowedModalitiesByRetrievalMode[retrievalMode]
 
         startTime = time.perf_counter()
         rawQuery = embedFn()
@@ -41,13 +49,16 @@ class QuerySearch:
         normalizedIndex = reducedFeatures / (np.linalg.norm(reducedFeatures, axis=1, keepdims=True) + 1e-10)
         similarities = normalizedIndex @ normalizedQuery
         weights = np.array([item.get("appliedWeight", 1.0) for item in metadata])
-        weightedSimilarities = similarities * weights
+        modalityMask = np.array([item["modality"] in allowedModalities for item in metadata])
+        weightedSimilarities = np.where(modalityMask, similarities * weights, -np.inf)
         timings["similaritySec"] = time.perf_counter() - startTime
 
         startTime = time.perf_counter()
         rankedIndices = np.argsort(weightedSimilarities)[::-1]
         results, seenVideoIds = [], set()
         for index in rankedIndices:
+            if weightedSimilarities[index] == -np.inf:
+                break
             videoId = metadata[index]["videoId"]
             if videoId in seenVideoIds:
                 continue
