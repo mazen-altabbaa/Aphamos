@@ -58,7 +58,9 @@ def runQueryMenu(config: SystemConfig, visionEncoder=None):
         else:
             imagePath = input("Enter image path: ").strip()
             frame = cv2.imread(imagePath)
-            results, timings = querySearch.queryWithImage(frame, topK=5, retrievalMode=retrievalMode)
+            results, timings = querySearch.queryWithImage(
+                frame, topK=5, retrievalMode=retrievalMode, queryLabel=imagePath
+            )
 
         for rank, result in enumerate(results, start=1):
             print(f"{rank}. {result['videoId']} | score={result['score']:.4f}")

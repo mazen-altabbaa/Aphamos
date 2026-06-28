@@ -2,6 +2,7 @@ import time
 import numpy as np
 from storage.indexStore import IndexStore
 from storage.pcaReducer import PcaDimensionReducer, IdentityDimensionReducer
+from retrieval.queryStatsReporter import QueryStatsReporter
 
 allowedModalitiesByRetrievalMode = {
     "audio": {"transcript"},
@@ -15,14 +16,15 @@ class QuerySearch:
         self.config = config
         self.visionEncoder = visionEncoder
         self.indexStore = IndexStore(config.indexDir)
+        self.queryStatsReporter = QueryStatsReporter(config.statsDir)
 
     def queryWithText(self, textQuery: str, topK: int = 5, retrievalMode: str = None):
-        return self._query(lambda: self.visionEncoder.encodeText(textQuery), topK, retrievalMode)
+        return self._query(lambda: self.visionEncoder.encodeText(textQuery), topK, retrievalMode, f"text:{textQuery}")
 
-    def queryWithImage(self, frame, topK: int = 5, retrievalMode: str = None):
-        return self._query(lambda: self.visionEncoder.encodeImage(frame), topK, retrievalMode)
+    def queryWithImage(self, frame, topK: int = 5, retrievalMode: str = None, queryLabel: str = "image"):
+        return self._query(lambda: self.visionEncoder.encodeImage(frame), topK, retrievalMode, queryLabel)
 
-    def _query(self, embedFn, topK: int, retrievalMode: str):
+    def _query(self, embedFn, topK: int, retrievalMode: str, queryLabel: str):
         timings = {}
         retrievalMode = retrievalMode or self.config.retrievalMode
         allowedModalities = allowedModalitiesByRetrievalMode[retrievalMode]
@@ -73,4 +75,5 @@ class QuerySearch:
         timings["rankAndDedupeSec"] = time.perf_counter() - startTime
 
         timings["totalSec"] = sum(timings.values())
+        self.queryStatsReporter.recordQuery(queryLabel, retrievalMode, results, timings)
         return results, timings
