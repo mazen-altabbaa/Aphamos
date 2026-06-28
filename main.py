@@ -11,9 +11,9 @@ from engines.visionEncoder import MobileClipVisionEncoder
 from engines.asrEngine import MoonshineAsrEngine
 from core.modalityWeighter import buildModalityWeighter
 from storage.indexStore import IndexStore
-from indexing.indexBuilder import IndexBuilder
+from index.indexBuilder import IndexBuilder
 from retrieval.querySearch import QuerySearch
-from datasets.datasetLoader import LocalFolderDatasetLoader
+from dataset.datasetLoader import LocalFolderDatasetLoader
 
 
 def buildEngines(config: SystemConfig):
@@ -45,15 +45,20 @@ def runQueryMenu(config: SystemConfig, visionEncoder=None):
         print("\n1. Text query  2. Image query  3. Back")
         choice = input("Choice: ").strip()
 
+        if choice not in ("1", "2"):
+            return
+
+        print("Retrieval mode: 1. Both  2. Audio only  3. Image only")
+        modeChoice = input("Choice: ").strip()
+        retrievalMode = {"1": "both", "2": "audio", "3": "image"}.get(modeChoice, "both")
+
         if choice == "1":
             textQuery = input("Enter search text: ").strip()
-            results, timings = querySearch.queryWithText(textQuery, topK=5)
-        elif choice == "2":
+            results, timings = querySearch.queryWithText(textQuery, topK=5, retrievalMode=retrievalMode)
+        else:
             imagePath = input("Enter image path: ").strip()
             frame = cv2.imread(imagePath)
-            results, timings = querySearch.queryWithImage(frame, topK=5)
-        else:
-            return
+            results, timings = querySearch.queryWithImage(frame, topK=5, retrievalMode=retrievalMode)
 
         for rank, result in enumerate(results, start=1):
             print(f"{rank}. {result['videoId']} | score={result['score']:.4f}")
