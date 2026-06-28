@@ -25,6 +25,7 @@ class SystemConfig:
     fusionMode: str = "dynamic"
     constantAudioWeight: float = 1.5
     constantFrameWeight: float = 1.0
+    retrievalMode: str = "both"
 
     asrModelId: str = "UsefulSensors/moonshine-base"
     visionModelName: str = "MobileCLIP-S2"
