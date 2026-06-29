@@ -1,0 +1,39 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+*.egg
+
+# ===== Virtual environments =====
+.venv/
+venv/
+env/
+
+# ===== Models (downloaded via HF_HOME override in main.py) =====
+models/
+
+# ===== Dataset (large video files, not for git) =====
+dataset/Panda70_Dataset/
+dataset/*.mp4
+dataset/*.avi
+dataset/*.mov
+dataset/*.mkv
+dataset/*.webm
+
+# ===== Outputs (generated at runtime) =====
+output/frames/
+output/index/
+output/stats/
+
+# ===== Editor / OS junk =====
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ===== Logs =====
+*.log
