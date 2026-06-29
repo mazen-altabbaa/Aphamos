@@ -11,4 +11,5 @@ msgpack
 pooch
 narwhals
 timm
+tqdm
 tokenizers>=0.22.0,<=0.23.0

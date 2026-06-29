@@ -1,5 +1,6 @@
 from pathlib import Path
 import numpy as np
+from tqdm import tqdm
 from storage.indexStore import IndexStore
 from storage.pcaReducer import PcaDimensionReducer, IdentityDimensionReducer
 from index.videoProcessor import VideoProcessor
@@ -23,11 +24,16 @@ class IndexBuilder:
 
         newEmbeddings, newMetadata, videoStatsList = [], [], []
 
-        for videoPath in videoPaths:
-            videoId = Path(videoPath).stem
-            if videoId in processedIds:
-                continue
+        skippedCount = sum(1 for videoPath in videoPaths if Path(videoPath).stem in processedIds)
+        remainingPaths = [videoPath for videoPath in videoPaths if Path(videoPath).stem not in processedIds]
 
+        progressBar = tqdm(remainingPaths, desc="Indexing", unit="video")
+        if skippedCount:
+            progressBar.write(f"Skipping {skippedCount} already-indexed video(s).")
+
+        for videoPath in progressBar:
+            videoId = Path(videoPath).stem
+            progressBar.set_postfix_str(videoId)
             embeddings, metadataItems, videoStats = self.videoProcessor.process(videoPath)
             if len(embeddings) > 0:
                 newEmbeddings.append(embeddings)

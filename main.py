@@ -1,9 +1,16 @@
 import os
+import warnings
 from pathlib import Path
 
 _modelsDir = str((Path(__file__).parent / "models").resolve())
 os.environ["HF_HOME"] = _modelsDir
 os.environ["HF_HUB_CACHE"] = str(Path(_modelsDir) / "hub")
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+warnings.filterwarnings("ignore", category=UserWarning, module="librosa")
+warnings.filterwarnings("ignore", category=FutureWarning, module="librosa")
+warnings.filterwarnings("ignore", message="PySoundFile failed.*")
 
 import cv2
 from config import SystemConfig
