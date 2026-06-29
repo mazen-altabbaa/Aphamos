@@ -13,7 +13,14 @@ from core.modalityWeighter import buildModalityWeighter
 from storage.indexStore import IndexStore
 from index.indexBuilder import IndexBuilder
 from retrieval.querySearch import QuerySearch
-from dataset.datasetLoader import LocalFolderDatasetLoader
+from dataset.datasetLoader import LocalFolderDatasetLoader, CsvFilteredFolderDatasetLoader
+
+
+def loadVideoPaths(videosDir: str) -> list:
+    csvPath = Path("dataset") / "panda70m_filtered_exact_match.csv"
+    if csvPath.exists():
+        return CsvFilteredFolderDatasetLoader(videosDir, str(csvPath)).listVideoPaths()
+    return LocalFolderDatasetLoader(videosDir).listVideoPaths()
 
 
 def buildEngines(config: SystemConfig):
@@ -74,7 +81,7 @@ def main():
 
     if not indexStore.hasExistingIndex():
         videosDir = input("Videos directory: ").strip()
-        videoPaths = LocalFolderDatasetLoader(videosDir).listVideoPaths()
+        videoPaths = loadVideoPaths(videosDir)
         if not videoPaths:
             print("No videos found.")
             return
@@ -87,13 +94,13 @@ def main():
 
     if choice == "2":
         videosDir = input("Videos directory: ").strip()
-        videoPaths = LocalFolderDatasetLoader(videosDir).listVideoPaths()
+        videoPaths = loadVideoPaths(videosDir)
         visionEncoder = runIndexingMenu(config, videoPaths)
         runQueryMenu(config, visionEncoder)
     elif choice == "3":
         indexStore.reset()
         videosDir = input("Videos directory: ").strip()
-        videoPaths = LocalFolderDatasetLoader(videosDir).listVideoPaths()
+        videoPaths = loadVideoPaths(videosDir)
         visionEncoder = runIndexingMenu(config, videoPaths)
         runQueryMenu(config, visionEncoder)
     else:
