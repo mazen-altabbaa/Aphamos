@@ -2,8 +2,8 @@ from pathlib import Path
 import numpy as np
 from storage.indexStore import IndexStore
 from storage.pcaReducer import PcaDimensionReducer, IdentityDimensionReducer
-from indexing.videoProcessor import VideoProcessor
-from indexing.statsReporter import StatsReporter
+from index.videoProcessor import VideoProcessor
+from index.statsReporter import StatsReporter
 
 
 class IndexBuilder:
