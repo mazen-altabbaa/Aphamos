@@ -8,6 +8,10 @@ os.environ["HF_HUB_CACHE"] = str(Path(_modelsDir) / "hub")
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
+_hubDir = Path(_modelsDir) / "hub"
+_hasCachedModels = _hubDir.exists() and any(_hubDir.iterdir())
+os.environ.setdefault("HF_HUB_OFFLINE", "1" if _hasCachedModels else "0")
+
 warnings.filterwarnings("ignore", category=UserWarning, module="librosa")
 warnings.filterwarnings("ignore", category=FutureWarning, module="librosa")
 warnings.filterwarnings("ignore", message="PySoundFile failed.*")
