@@ -57,17 +57,26 @@ class IndexBuilder:
         finalRawFeatures = self.indexStore.loadRawFeatures()
         finalMetadata = self.indexStore.loadMetadata()
 
-        if self.config.usePcaReduction:
+        pcaDimensions = [512, 256, 128, 64]
+        maxDimension = min(pcaDimensions) if finalRawFeatures is not None else 0
+
+        if finalRawFeatures is not None and len(finalRawFeatures) > maxDimension:
+            print(f"Fitting PCA for dimensions: {pcaDimensions}")
+            for dim in pcaDimensions:
+                if finalRawFeatures.shape[1] < dim:
+                    print(f"  Skipping PCA-{dim}: raw feature size ({finalRawFeatures.shape[1]}) < {dim}")
+                    continue
+                reducer = PcaDimensionReducer(dim)
+                reducer.fit(finalRawFeatures)
+                reducedFeatures = reducer.transform(finalRawFeatures)
+                self.indexStore.saveReducedFeatures(reducedFeatures, dimension=dim)
+                reducer.save(self.indexStore.indexDir, dimension=dim)
+                varExplained = reducer.explainedVarianceRatioSum()
+                print(f"  PCA-{dim}: explained variance = {varExplained:.4f}")
             dimensionReducer = PcaDimensionReducer(self.config.pcaDimension)
+            dimensionReducer.fit(finalRawFeatures)
         else:
             dimensionReducer = IdentityDimensionReducer()
-
-        if finalRawFeatures is not None and len(finalRawFeatures) > 0:
-            dimensionReducer.fit(finalRawFeatures)
-            reducedFeatures = dimensionReducer.transform(finalRawFeatures)
-            self.indexStore.saveReducedFeatures(reducedFeatures)
-            if self.config.usePcaReduction:
-                dimensionReducer.save(self.indexStore.indexDir)
 
         manifest["collections"].append(collectionName)
         self.indexStore.saveManifest(manifest)

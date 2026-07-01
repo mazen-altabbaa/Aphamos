@@ -36,13 +36,18 @@ class IndexStore:
     def saveRawFeatures(self, features: np.ndarray) -> None:
         np.save(self.rawFeaturesPath, features)
 
-    def loadReducedFeatures(self):
-        if self.reducedFeaturesPath.exists():
-            return np.load(self.reducedFeaturesPath)
+    def loadReducedFeatures(self, dimension: int = None):
+        path = self.reducedFeaturesPath if dimension is None else self.indexDir / f"featuresReduced_{dimension}.npy"
+        if path.exists():
+            return np.load(path)
         return None
 
-    def saveReducedFeatures(self, features: np.ndarray) -> None:
-        np.save(self.reducedFeaturesPath, features)
+    def saveReducedFeatures(self, features: np.ndarray, dimension: int = None) -> None:
+        path = self.reducedFeaturesPath if dimension is None else self.indexDir / f"featuresReduced_{dimension}.npy"
+        np.save(path, features)
+
+    def hasReducedFeatures(self, dimension: int) -> bool:
+        return (self.indexDir / f"featuresReduced_{dimension}.npy").exists()
 
     def hasExistingIndex(self) -> bool:
         return self.rawFeaturesPath.exists() and self.metadataPath.exists()
