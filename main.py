@@ -25,6 +25,8 @@ from storage.indexStore import IndexStore
 from index.indexBuilder import IndexBuilder
 from retrieval.querySearch import QuerySearch
 from dataset.datasetLoader import LocalFolderDatasetLoader, CsvFilteredFolderDatasetLoader
+from test.evaluator import Evaluator
+from test.evalReporter import EvalReporter
 
 
 def loadVideoPaths(videosDir: str) -> list:
@@ -85,6 +87,16 @@ def runQueryMenu(config: SystemConfig, visionEncoder=None):
         print("Timings (sec):", {key: round(value, 4) for key, value in timings.items()})
 
 
+def runEvalMenu(config: SystemConfig, visionEncoder=None):
+    if visionEncoder is None:
+        visionEncoder = MobileClipVisionEncoder(
+            config.visionModelName, config.visionPretrainedTag, config.device
+        )
+    csvPath = input("Path to eval CSV: ").strip()
+    metrics = Evaluator(config, visionEncoder).run(csvPath)
+    EvalReporter().print(metrics)
+
+
 def main():
     config = SystemConfig()
     config.ensureDirectories()
@@ -100,7 +112,7 @@ def main():
         runQueryMenu(config, visionEncoder)
         return
 
-    print("1. Use existing index\n2. Add more videos\n3. Reset index from scratch")
+    print("1. Use existing index\n2. Add more videos\n3. Reset index from scratch\n4. Evaluate (R@K, MRR)")
     choice = input("Choice: ").strip()
 
     if choice == "2":
@@ -114,6 +126,8 @@ def main():
         videoPaths = loadVideoPaths(videosDir)
         visionEncoder = runIndexingMenu(config, videoPaths)
         runQueryMenu(config, visionEncoder)
+    elif choice == "4":
+        runEvalMenu(config)
     else:
         runQueryMenu(config)
 
