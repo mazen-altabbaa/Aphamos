@@ -93,8 +93,8 @@ def runEvalMenu(config: SystemConfig, visionEncoder=None):
             config.visionModelName, config.visionPretrainedTag, config.device
         )
     csvPath = input("Path to eval CSV: ").strip()
-    metrics = Evaluator(config, visionEncoder).run(csvPath)
-    EvalReporter().print(metrics)
+    allResults = Evaluator(config, visionEncoder).runAll(csvPath)
+    EvalReporter().print(allResults)
 
 
 def main():

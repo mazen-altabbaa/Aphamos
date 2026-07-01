@@ -18,13 +18,13 @@ class QuerySearch:
         self.indexStore = IndexStore(config.indexDir)
         self.queryStatsReporter = QueryStatsReporter(config.statsDir)
 
-    def queryWithText(self, textQuery: str, topK: int = 5, retrievalMode: str = None):
-        return self._query(lambda: self.visionEncoder.encodeText(textQuery), topK, retrievalMode, f"text:{textQuery}")
+    def queryWithText(self, textQuery: str, topK: int = 5, retrievalMode: str = None, pcaDim: int = None):
+        return self._query(lambda: self.visionEncoder.encodeText(textQuery), topK, retrievalMode, f"text:{textQuery}", pcaDim)
 
-    def queryWithImage(self, frame, topK: int = 5, retrievalMode: str = None, queryLabel: str = "image"):
-        return self._query(lambda: self.visionEncoder.encodeImage(frame), topK, retrievalMode, queryLabel)
+    def queryWithImage(self, frame, topK: int = 5, retrievalMode: str = None, queryLabel: str = "image", pcaDim: int = None):
+        return self._query(lambda: self.visionEncoder.encodeImage(frame), topK, retrievalMode, queryLabel, pcaDim)
 
-    def _query(self, embedFn, topK: int, retrievalMode: str, queryLabel: str):
+    def _query(self, embedFn, topK: int, retrievalMode: str, queryLabel: str, pcaDim: int = None):
         timings = {}
         retrievalMode = retrievalMode or self.config.retrievalMode
         allowedModalities = allowedModalitiesByRetrievalMode[retrievalMode]
@@ -33,14 +33,16 @@ class QuerySearch:
         rawQuery = embedFn()
         timings["embedQuerySec"] = time.perf_counter() - startTime
 
+        activeDim = pcaDim if pcaDim is not None else (self.config.pcaDimension if self.config.usePcaReduction else None)
+
         startTime = time.perf_counter()
-        reducedFeatures = self.indexStore.loadReducedFeatures()
+        reducedFeatures = self.indexStore.loadReducedFeatures(dimension=activeDim)
         metadata = self.indexStore.loadMetadata()
         timings["loadIndexSec"] = time.perf_counter() - startTime
 
         startTime = time.perf_counter()
-        if self.config.usePcaReduction:
-            reducer = PcaDimensionReducer.load(self.indexStore.indexDir, self.config.pcaDimension)
+        if activeDim is not None:
+            reducer = PcaDimensionReducer.load(self.indexStore.indexDir, activeDim)
         else:
             reducer = IdentityDimensionReducer()
         transformedQuery = reducer.transform(rawQuery.reshape(1, -1)).flatten()
