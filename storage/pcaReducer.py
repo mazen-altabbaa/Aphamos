@@ -27,16 +27,21 @@ class PcaDimensionReducer(IDimensionReducer):
     def explainedVarianceRatioSum(self) -> float:
         return float(self.pca.explained_variance_ratio_.sum()) if self._fitted else 0.0
 
-    def save(self, indexDir: Path) -> None:
-        with open(indexDir / "scaler.pkl", "wb") as scalerFile:
+    def save(self, indexDir: Path, dimension: int = None) -> None:
+        suffix = f"_{dimension}" if dimension is not None else ""
+        with open(indexDir / f"scaler{suffix}.pkl", "wb") as scalerFile:
             pickle.dump(self.scaler, scalerFile)
-        with open(indexDir / "pca.pkl", "wb") as pcaFile:
+        with open(indexDir / f"pca{suffix}.pkl", "wb") as pcaFile:
             pickle.dump(self.pca, pcaFile)
 
     @classmethod
     def load(cls, indexDir: Path, dimension: int):
         reducer = cls(dimension)
-        scalerPath, pcaPath = indexDir / "scaler.pkl", indexDir / "pca.pkl"
+        scalerPath = indexDir / f"scaler_{dimension}.pkl"
+        pcaPath = indexDir / f"pca_{dimension}.pkl"
+        if not scalerPath.exists():
+            scalerPath = indexDir / "scaler.pkl"
+            pcaPath = indexDir / "pca.pkl"
         if scalerPath.exists() and pcaPath.exists():
             with open(scalerPath, "rb") as scalerFile:
                 reducer.scaler = pickle.load(scalerFile)
@@ -56,7 +61,7 @@ class IdentityDimensionReducer(IDimensionReducer):
     def isFitted(self) -> bool:
         return True
 
-    def save(self, indexDir: Path) -> None:
+    def save(self, indexDir: Path, dimension: int = None) -> None:
         pass
 
     @classmethod
