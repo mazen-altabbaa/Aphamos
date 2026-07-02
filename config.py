@@ -11,11 +11,11 @@ class SystemConfig:
     minFrameIntervalSec: float = 2.0
 
     thresholdMode: str = "adaptive"
-    initialThreshold: float = 70.0
+    initialThreshold: float = 15.0
     thresholdLearningRate: float = 0.1
     thresholdHistoryWindow: int = 9
     constantThresholdValue: float = 70.0
-    randomThresholdMin: float = 40.0
+    randomThresholdMin: float = 15.0
     randomThresholdMax: float = 100.0
     useHistogramDiff: bool = True
 
