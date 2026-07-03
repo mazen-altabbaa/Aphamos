@@ -8,16 +8,16 @@ class SystemConfig:
     modelsDir: str = "models"
     frameImageSize: int = 224
     maxFramesPerVideo: int = 30
-    minFrameIntervalSec: float = 2.0
+    minFrameIntervalSec: float = 0.5
 
-    thresholdMode: str = "adaptive"
-    initialThreshold: float = 15.0
+    thresholdMode: str = "interval"
+    initialThreshold: float = 5.0
     thresholdLearningRate: float = 0.1
     thresholdHistoryWindow: int = 9
-    constantThresholdValue: float = 70.0
-    randomThresholdMin: float = 15.0
-    randomThresholdMax: float = 100.0
-    useHistogramDiff: bool = True
+    constantThresholdValue: float = 10.0
+    randomThresholdMin: float = 1.0
+    randomThresholdMax: float = 25.0
+    useHistogramDiff: bool = False
 
     usePcaReduction: bool = True
     pcaDimension: int = 256

@@ -14,6 +14,35 @@ class FrameSampler:
         fps = capture.get(cv2.CAP_PROP_FPS) or 30.0
         minIntervalFrames = int(fps * self.config.minFrameIntervalSec)
 
+        if self.config.thresholdMode == "interval":
+            return self._sampleByInterval(capture, videoId, minIntervalFrames)
+
+        return self._sampleByDiff(capture, videoId, fps, minIntervalFrames)
+
+    def _sampleByInterval(self, capture, videoId: str, minIntervalFrames: int):
+        frameIndex = 0
+        lastCapturedFrame = -minIntervalFrames
+        capturedFrames, framePaths, frameIndices = [], [], []
+
+        while len(capturedFrames) < self.config.maxFramesPerVideo:
+            success, frame = capture.read()
+            if not success:
+                break
+            if (frameIndex - lastCapturedFrame) >= minIntervalFrames:
+                framePath = self.config.framesDir / f"{videoId}_frame_{len(capturedFrames):04d}.jpg"
+                resized = cv2.resize(frame, (self.config.frameImageSize, self.config.frameImageSize))
+                cv2.imwrite(str(framePath), resized)
+                capturedFrames.append(frame)
+                framePaths.append(str(framePath))
+                frameIndices.append(frameIndex)
+                lastCapturedFrame = frameIndex
+            frameIndex += 1
+
+        capture.release()
+        return capturedFrames, framePaths, frameIndices, []
+
+    def _sampleByDiff(self, capture, videoId: str, fps: float, minIntervalFrames: int):
+
         thresholdStrategy = buildThresholdStrategy(self.config)
         previousSignal = None
         frameIndex = 0

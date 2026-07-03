@@ -65,6 +65,18 @@ class RandomThresholdStrategy(IThresholdStrategy):
         return self.thresholdHistory
 
 
+class IntervalSamplingStrategy(IThresholdStrategy):
+    def update(self, diff: float) -> float:
+        return 0.0
+
+    def shouldCapture(self, diff: float) -> bool:
+        return True
+
+    @property
+    def history(self) -> list:
+        return []
+
+
 def buildThresholdStrategy(config) -> IThresholdStrategy:
     if config.thresholdMode == "adaptive":
         return AdaptiveThresholdStrategy(
@@ -76,4 +88,6 @@ def buildThresholdStrategy(config) -> IThresholdStrategy:
         return ConstantThresholdStrategy(config.constantThresholdValue)
     if config.thresholdMode == "random":
         return RandomThresholdStrategy(config.randomThresholdMin, config.randomThresholdMax)
+    if config.thresholdMode == "interval":
+        return IntervalSamplingStrategy()
     raise ValueError(f"Unknown threshold mode: {config.thresholdMode}")

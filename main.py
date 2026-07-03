@@ -31,7 +31,8 @@ from test.evalReporter import EvalReporter
 
 def loadVideoPaths(videosDir: str) -> list:
     csvPath = Path("dataset") / "panda70m_filtered_exact_match.csv"
-    if csvPath.exists():
+    isPandaDataset = "Panda70" in videosDir or "panda" in videosDir.lower()
+    if csvPath.exists() and isPandaDataset:
         return CsvFilteredFolderDatasetLoader(videosDir, str(csvPath)).listVideoPaths()
     return LocalFolderDatasetLoader(videosDir).listVideoPaths()
 

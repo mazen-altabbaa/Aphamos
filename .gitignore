@@ -37,3 +37,4 @@ output/stats/
 
 # ===== Logs =====
 *.log
+dataset/MSRVTT_Dataset/
