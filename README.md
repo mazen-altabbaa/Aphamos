@@ -1,92 +1,200 @@
-Aphamos
----
----
-Aphamos is a Novel Experimental Framework for Text-to-Video Retrieval System.
+# Aphamos
 
----
+**A Novel Experimental Framework for Multimodal Text-to-Video Retrieval**
 
 ![Logo](Aphamos.png)
 
 ---
-### Abstract
----
-Video retrieval remains challenging due to limited semantic alignment between queries and videos. In this work, we propose a novel embedding system that enhances cross-modal similarity learning using simple, computationally efficient techniques. Our approach combines histogram-based methods with image and audio embedding to improve similarity and alignment.
 
----
-### Architecture
----
-![Architecture](pipeline.png)
+## Abstract
 
----
-### Contributions
----
-* Utilizing histogram-based techniques with adaptive  thresholds based on the visual characteristics of the video.
-
-* Incorporating audio transcripts alongside video  frames after dimensionality reduction using PCA.
-
-* Preparing a research paper based on this system to study the impact of audio embedding, dimensionality reduction, and various adaptive thresholding values on the relevance of retrieved videos.
-
----
-### Dataset
----
-We use Dataset from [Panda-70M](https://snap-research.github.io/Panda-70M/), And we specially use [Testing](https://drive.google.com/file/d/1BZ9L-157Au1TwmkwlJV8nZQvSRLIiFhq/view?usp=sharing) split. 
+Video retrieval remains challenging due to limited semantic alignment between natural language queries and heterogeneous video content. Aphamos proposes a training-free multimodal indexing and retrieval framework that combines histogram-based adaptive frame sampling with dual-stream embedding — encoding both visual frames via MobileCLIP-S2 and audio transcripts via Moonshine ASR. Modality fusion weights are computed dynamically per video using Shannon entropy, allowing the system to adapt to the visual and acoustic characteristics of each clip without any labeled training data.
 
 ---
 
-### Results
+## Architecture
+
+![Pipeline](pipeline.png)
+
 ---
-|R@1|R@5|R@10|MRR|
+
+## Contributions
+
+- Histogram-based frame selection with four configurable threshold strategies: adaptive, constant, random, and interval-based.
+- Dual-stream embedding combining MobileCLIP-S2 visual features and Moonshine ASR transcript embeddings.
+- Dynamic entropy-based modality fusion that weighs audio and frame streams per video at indexing time.
+- Multi-dimensional PCA reduction (512 → 256 / 128 / 64) stored at index time, enabling zero-cost evaluation across all dimensions.
+- Batch matrix-multiplication evaluator supporting R@1, R@5, R@10, MRR, mean query time, and confidence factor across all PCA × modality combinations in a single pass.
+- Evaluated on two datasets: Panda-70M (300 videos) and MSR-VTT (300 videos) across five threshold configurations.
+
+---
+
+## Datasets
+
+| Dataset | Split | Videos | Notes |
 |---|---|---|---|
-|19.0|36.0|44.333|27.905|
+| [Panda-70M](https://snap-research.github.io/Panda-70M/) | Test | 300 | Filtered via `panda70m_filtered_exact_match.csv` |
+| [MSR-VTT](https://www.microsoft.com/en-us/research/publication/msr-vtt-a-large-video-description-dataset-for-bridging-video-and-language/) | Test-1K | 300 | Downloaded via `yt-dlp`, trimmed to annotated clip range |
 
->**Note:** Our method achieves competitive performance on Panda-70M.
 ---
-### Requirements
----
-- Python 3.9.25
-  >**Note:** The code is compatible with Python 3.9.25
-   Other versions may lead to unexpected behavior, or incompatibility with required libraries.
-- Model: OpenAI CLIP ViT-B/32
-  Version: openai/clip-vit-base-patch32 (Hugging Face)
-  >**Note:** If you use [Colab](https://colab.research.google.com/), You don't have to download this model.
 
-- Model: OpenAI Whisper Small
-  Version: "small" model (v20231117)
-  >**Note:** If you use [Colab](https://colab.research.google.com/), You don't have to download this model.    
-### Installation
+## Results
+
+### Panda-70M (best configuration: threshold=5, PCA-512, both modalities)
+
+| R@1 | R@5 | R@10 | MRR |
+|---|---|---|---|
+| 0.410 | 0.567 | 0.627 | 0.476 |
+
+### MSR-VTT (best configuration: threshold=5, PCA-512, both modalities)
+
+| R@1 | R@5 | R@10 | MRR |
+|---|---|---|---|
+| 0.213 | 0.347 | 0.393 | 0.273 |
+
+> Results are from a training-free system running locally on an RTX 2050 (4 GB VRAM). No fine-tuning or labeled data was used at any stage.
+
 ---
-Get an Aphamos repository:
-```
-git clone git@github.com:mazen-altabbaa/Aphamos.git
-```
-Change to the appropriate directory:
-```
-cd Aphamos 
-```
-Install requirements libraries
-```
+
+## Requirements
+
+- Python 3.12
+- PyTorch 2.7.1 + CUDA 12.6
+- ffmpeg (system-level, required for audio extraction)
+
+Install Python dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
-In retrieval.py file, In Settings Class: 
-- Put your videos directory path in "videosDir" variable:
-   ```
-   videosDir = "videos directory path here"
-   ```
-- Put your models directory path:
-   ```
-   localClipPath = "clip directory path here"
-   localWhisperPath = "whesper directory path here" 
-   ```
-The system is now ready for execution.
+
+Models are downloaded automatically on first run and cached locally under `models/` (controlled via `HF_HOME`):
+
+| Model | Source | Purpose |
+|---|---|---|
+| MobileCLIP-S2 (`datacompdr`) | `open_clip` / HuggingFace | Frame + text embedding |
+| Moonshine Base | `UsefulSensors/moonshine-base` | Audio transcription |
 
 ---
-### Contact
+
+## Installation
+
+```bash
+git clone https://github.com/mazen-altabbaa/Aphamos.git
+cd Aphamos
+pip install -r requirements.txt
+```
+
+Install ffmpeg (Fedora / Ubuntu):
+
+```bash
+# Fedora
+sudo dnf install ffmpeg
+
+# Ubuntu
+sudo apt install ffmpeg
+```
+
 ---
+
+## Usage
+
+```bash
+python main.py
+```
+
+On first run the system will prompt for:
+
+```
+Videos directory: dataset/Panda70_Dataset
+Name this collection: panda_thr5
+```
+
+After indexing, choose option **4** to evaluate:
+
+```
+Path to eval CSV: dataset/panda70m_filtered_exact_match.csv
+```
+
+The evaluator runs all 12 combinations (4 PCA dims × 3 modality modes) in a single batch pass and prints a full results table.
+
+### Menu options
+
+| Option | Action |
+|---|---|
+| 1 | Use existing index → query or evaluate |
+| 2 | Add more videos to existing index |
+| 3 | Reset index from scratch |
+| 4 | Evaluate (R@K, MRR) across all PCA × modality combinations |
+
+### Config
+
+All parameters are in `config.py`:
+
+```python
+thresholdMode: str = "adaptive"   # adaptive | constant | random | interval
+initialThreshold: float = 5.0
+constantThresholdValue: float = 25.0
+minFrameIntervalSec: float = 2.0
+maxFramesPerVideo: int = 30
+pcaDimension: int = 256
+fusionMode: str = "dynamic"       # dynamic | constant
+retrievalMode: str = "both"       # both | audio | image
+device: str = "cuda"
+```
+
+---
+
+## Project Structure
+
+```
+Aphamos/
+├── main.py                  # Entry point and menu
+├── config.py                # System configuration
+├── core/
+│   ├── frameSampler.py      # Histogram-based frame selection
+│   ├── thresholdStrategies.py
+│   ├── modalityWeighter.py  # Entropy-based dynamic fusion
+│   └── interfaces.py
+├── engines/
+│   ├── visionEncoder.py     # MobileCLIP-S2 image + text encoder
+│   └── asrEngine.py         # Moonshine ASR with multi-chunk sampling
+├── index/
+│   ├── indexBuilder.py      # Builds and stores all PCA variants
+│   └── videoProcessor.py
+├── retrieval/
+│   └── querySearch.py       # Batch similarity search
+├── storage/
+│   ├── indexStore.py
+│   └── pcaReducer.py        # Per-dimension PCA fit + load
+├── dataset/
+│   └── datasetLoader.py     # CSV-filtered + local folder loaders
+└── test/
+    ├── evaluator.py          # Batch multi-combo evaluator
+    ├── evalManifestReader.py
+    ├── evalMetrics.py
+    └── evalReporter.py
+```
+
+---
+
+## Computing Environment
+
+All experiments were conducted locally on:
+
+- CPU: AMD Ryzen 5 7535HS (6 cores / 12 threads, up to 4.60 GHz)
+- GPU: NVIDIA GeForce RTX 2050 (4 GB VRAM)
+- RAM: 8 GB DDR5-4800
+- OS: Fedora Linux with KDE Plasma
+- Framework: PyTorch 2.7.1 + CUDA 12.6
+
+---
+
+## Contact
+
 For questions or collaborations:
-* **Ahmad**
-Email: ahmad2315753@gmail.com
-Github: [ahmad-alsrdah](https://github.com/ahmad-alsrdah)
-* **Mazen**
-Email: mazenaltabbaa366@gmail.com
-Github: [mazen-altabbaa](https://github.com/mazen-altabbaa)
-##### You may also open an issue for implementation-related questions.
+
+- **Mazen Al-Tabbaa** — mazenaltabbaa366@gmail.com · [mazen-altabbaa](https://github.com/mazen-altabbaa)
+- **Ahmad** — ahmad2315753@gmail.com · [ahmad-alsrdah](https://github.com/ahmad-alsrdah)
+
+Open an issue for implementation-related questions.
