@@ -200,7 +200,7 @@ All experiments were conducted locally on:
 
 For questions or collaborations:
 
-- **Mazen Al-Tabbaa** — mazenaltabbaa366@gmail.com · [mazen-altabbaa](https://github.com/mazen-altabbaa)
+- **Mazen** — mazenaltabbaa366@gmail.com · [mazen-altabbaa](https://github.com/mazen-altabbaa)
 - **Ahmad** — ahmad2315753@gmail.com · [ahmad-alsrdah](https://github.com/ahmad-alsrdah)
 
 Open an issue for implementation-related questions.
