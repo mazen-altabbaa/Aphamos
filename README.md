@@ -12,9 +12,15 @@ Video retrieval remains challenging due to limited semantic alignment between na
 
 ---
 
-## Architecture
+## Pipeline
 
 ![Pipeline](pipeline.png)
+
+---
+
+## Architecture
+
+![Pipeline](architecture.png)
 
 ---
 
@@ -40,17 +46,17 @@ Video retrieval remains challenging due to limited semantic alignment between na
 
 ## Results
 
-### Panda-70M (best configuration: threshold=5, PCA-512, both modalities)
+### Panda-70M (best configuration: Interval frames selecting, PCA-512, both modalities)
 
 | R@1 | R@5 | R@10 | MRR |
 |---|---|---|---|
-| 0.410 | 0.567 | 0.627 | 0.476 |
+| 0.637 | 0.803 | 0.853 | 0.708 |
 
-### MSR-VTT (best configuration: threshold=5, PCA-512, both modalities)
+### MSR-VTT (best configuration: Interval frames selecting, PCA-512, both modalities)
 
 | R@1 | R@5 | R@10 | MRR |
 |---|---|---|---|
-| 0.213 | 0.347 | 0.393 | 0.273 |
+| 0.387 | 0.600 | 0.720 | 0.483 |
 
 > Results are from a training-free system running locally on an RTX 2050 (4 GB VRAM). No fine-tuning or labeled data was used at any stage.
 
