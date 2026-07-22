@@ -20,7 +20,7 @@ Video retrieval remains challenging due to limited semantic alignment between na
 
 ## Architecture
 
-![Pipeline](architecture.png)
+![Achitecture](architecture.png)
 
 ---
 
